@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creative Weather App</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      transition: background 1s ease;
+      background: linear-gradient(to top, #2980b9, #6dd5fa, #ffffff);
+    }
+
+    .weather-app {
+      width: 95%;
+      max-width: 550px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 20px;
+      text-align: center;
+      backdrop-filter: blur(15px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      color: #fff;
+    }
+
+    h1 {
+      margin-bottom: 15px;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    input {
+      padding: 10px;
+      width: 65%;
+      border: none;
+      outline: none;
+      border-radius: 12px;
+      margin-right: 10px;
+    }
+
+    button {
+      padding: 10px 15px;
+      border: none;
+      background: #6dd5fa;
+      color: #fff;
+      font-weight: bold;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    .current-weather {
+      margin: 20px 0;
+      animation: fadeIn 1s ease;
+    }
+
+    .current-weather h2 {
+      margin-bottom: 10px;
+      font-size: 22px;
+    }
+
+    .forecast {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 10px;
+      scrollbar-width: thin;
+    }
+
+    .day-card {
+      flex: 0 0 auto;
+      min-width: 120px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 15px;
+      padding: 10px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      transition: transform 0.3s;
+    }
+
+    .day-card:hover {
+      transform: translateY(-5px);
+    }
+
+    canvas {
+      margin-top: 20px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    @keyframes fadeIn {
+      from {opacity: 0; transform: translateY(20px);}
+      to {opacity: 1; transform: translateY(0);}
+    }
+
+    /* Background Themes */
+    body.clear {
+      background: linear-gradient(to top, #2980b9, #6dd5fa, #ffffff);
+    }
+
+    body.rain {
+      background: linear-gradient(to top, #2c3e50, #4ca1af);
+    }
+
+    body.night {
+      background: linear-gradient(to top, #0f2027, #203a43, #2c5364);
+    }
+
+    body.cloudy {
+      background: linear-gradient(to top, #bdc3c7, #2c3e50);
+    }
+  </style>
+</head>
+<body>
+  <div class="weather-app">
+    <h1>🌤️ Weather App</h1>
+    <div>
+      <input type="text" id="cityInput" placeholder="Enter city name">
+      <button onclick="getWeather()">Search</button>
+    </div>
+
+    <div class="current-weather" id="currentWeather"></div>
+    <h3 style="margin-top:15px;">Forecast</h3>
+    <div class="forecast" id="forecast"></div>
+
+    <h3 style="margin-top:20px;">🌡️ Next 24h Temperature</h3>
+    <canvas id="tempChart" height="150"></canvas>
+  </div>
+
+  <script>
+    const apiKey = "04b112654bdb4d95b1365106250509";
+    let chart; // chart instance
+
+    async function getWeather(city = null) {
+      try {
+        let query = city || document.getElementById("cityInput").value;
+        if (!query) return;
+
+        let res = await fetch(
+          `http://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${query}&days=2&aqi=yes&alerts=no`
+        );
+        let data = await res.json();
+
+        // update current weather
+        document.getElementById("currentWeather").innerHTML = `
+          <h2>${data.location.name}, ${data.location.country}</h2>
+          <img src="https:${data.current.condition.icon}" width="80">
+          <h3>${data.current.temp_c}°C</h3>
+          <p>${data.current.condition.text}</p>
+          <p>Humidity: ${data.current.humidity}% | Wind: ${data.current.wind_kph} kph</p>
+        `;
+
+        // update forecast
+        let forecastHTML = "";
+        data.forecast.forecastday.forEach(day => {
+          let date = new Date(day.date);
+          let weekday = date.toLocaleDateString("en-US", { weekday: "short" });
+          forecastHTML += `
+            <div class="day-card">
+              <h4>${weekday}</h4>
+              <img src="https:${day.day.condition.icon}" width="50">
+              <p>${day.day.avgtemp_c}°C</p>
+              <p>${day.day.condition.text}</p>
+            </div>
+          `;
+        });
+        document.getElementById("forecast").innerHTML = forecastHTML;
+
+        // background theme
+        const condition = data.current.condition.text.toLowerCase();
+        if (condition.includes("rain")) {
+          document.body.className = "rain";
+        } else if (condition.includes("cloud")) {
+          document.body.className = "cloudy";
+        } else if (data.current.is_day === 0) {
+          document.body.className = "night";
+        } else {
+          document.body.className = "clear";
+        }
+
+        // prepare 24h hourly chart
+        let hourlyData = data.forecast.forecastday[0].hour;
+        let labels = hourlyData.map(h => h.time.split(" ")[1]); // get only time (HH:mm)
+        let temps = hourlyData.map(h => h.temp_c);
+
+        if (chart) chart.destroy(); // reset chart if exists
+
+        let ctx = document.getElementById("tempChart").getContext("2d");
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: "Temperature (°C)",
+              data: temps,
+              borderColor: "#6dd5fa",
+              backgroundColor: "rgba(109, 213, 250, 0.2)",
+              borderWidth: 2,
+              tension: 0.3,
+              fill: true,
+              pointBackgroundColor: "#fff"
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: true, labels: { color: "#fff" } }
+            },
+            scales: {
+              x: { ticks: { color: "#fff" } },
+              y: { ticks: { color: "#fff" } }
+            }
+          }
+        });
+
+      } catch (err) {
+        alert("City not found!");
+      }
+    }
+
+    // Auto-detect location on load
+    window.onload = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async position => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          getWeather(`${lat},${lon}`);
+        });
+      }
+    };
+  </script>
+</body>
+</html>
