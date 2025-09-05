@@ -153,8 +153,9 @@
         if (!query) return;
 
         let res = await fetch(
-  `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${query}&days=3&aqi=yes&alerts=no`
-   );
+  `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${query}&days=2&aqi=yes&alerts=no`
+);
+
 
         let data = await res.json();
 
